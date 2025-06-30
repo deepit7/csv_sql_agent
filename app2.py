@@ -17,7 +17,11 @@ csv_file = st.file_uploader("Upload a CSV file", type=["csv"])
 db_file = st.file_uploader("Upload a SQLite .db file", type=["db", "sqlite"])
 query = st.text_area("Enter your query:")
 submit = st.button("Run Agent")
-
+chat = ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0,
+            openai_api_key=st.secrets["openai_api_key"]  # use from secrets safely
+        )
 if submit and not csv_file and not db_file:
     st.warning("Please upload at least one file (.csv or .db) to run a query.")
 elif submit and query:
@@ -30,11 +34,7 @@ elif submit and query:
                 f.write(csv_file.read())
             df = pd.read_csv(csv_path)
 
-            chat = ChatOpenAI(
-                model="gpt-3.5-turbo",
-                temperature=0,
-                openai_api_key=st.secrets["openai_api_key"])
-
+            
             pandas_agent = create_pandas_dataframe_agent(
                 chat,
                 df,
@@ -62,6 +62,8 @@ elif submit and query:
             sql_db = SQLDatabase(engine)
             sql_toolkit = SQLDatabaseToolkit(db=sql_db, llm=chat)
             sql_tools = sql_toolkit.get_tools()
+            # Create LLM instance at the top, once
+            
 
 # Update description of each SQL tool
             for tool in sql_tools:
