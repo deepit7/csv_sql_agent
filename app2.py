@@ -33,6 +33,8 @@ elif submit and query:
             with open(csv_path, "wb") as f:
                 f.write(csv_file.read())
             df = pd.read_csv(csv_path)
+            st.write("✅ CSV loaded:", df.shape)
+
 
             
             pandas_agent = create_pandas_dataframe_agent(
