@@ -42,8 +42,8 @@ elif submit and query:
                 df,
                 verbose=False,
                 allow_dangerous_code=True,
-                # agent_type=AgentType.OPENAI_FUNCTIONS
-                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                agent_type=AgentType.OPENAI_FUNCTIONS
+                #agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
 
             )
 
@@ -85,6 +85,8 @@ elif submit and query:
                 tools=tools,
                 llm=chat,
                 agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+
+                #agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
                 verbose=False
             )
 
