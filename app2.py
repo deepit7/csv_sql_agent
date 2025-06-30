@@ -14,90 +14,76 @@ st.set_page_config(page_title="CSV + SQL Agent", layout="centered")
 st.title("CSV + SQL LangChain Agent")
 
 csv_file = st.file_uploader("Upload a CSV file", type=["csv"])
-db_file = st.file_uploader("Upload a SQLite .db file", type=["db", "sqlite"])
-query = st.text_area("Enter your query:")
-submit = st.button("Run Agent")
+db_file  = st.file_uploader("Upload a SQLite .db file", type=["db", "sqlite"])
+query    = st.text_area("Enter your query:")
+submit   = st.button("Run Agent")
+
+# 1️⃣  Create the LLM once
 chat = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0,
-            openai_api_key=st.secrets["openai_api_key"]  # use from secrets safely
-        )
+    model="gpt-3.5-turbo",
+    temperature=0,
+    openai_api_key=st.secrets["openai_api_key"]
+)
+
 if submit and not csv_file and not db_file:
     st.warning("Please upload at least one file (.csv or .db) to run a query.")
+
 elif submit and query:
     try:
         tools = []
 
+        # 2️⃣  CSV  👉  Pandas tool
         if csv_file:
             csv_path = "uploaded_data.csv"
             with open(csv_path, "wb") as f:
                 f.write(csv_file.read())
             df = pd.read_csv(csv_path)
-            st.write("✅ CSV loaded:", df.shape)
+            st.success(f"✅ CSV loaded: {df.shape}")
 
-
-            
             pandas_agent = create_pandas_dataframe_agent(
                 chat,
                 df,
                 verbose=False,
                 allow_dangerous_code=True,
-                agent_type=AgentType.OPENAI_FUNCTIONS
-                #agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-
+                agent_type=AgentType.OPENAI_FUNCTIONS,
             )
 
-            pandas_tool = Tool(
-                name="Pandas_DataFrame_Tool",
-                func=pandas_agent.run,
-                description="Returns data summaries, column info, and statistics from the uploaded CSV file."
-
+            tools.append(
+                Tool(
+                    name="pandas_dataframe_tool",
+                    func=pandas_agent.run,
+                    description="Answer questions about the uploaded CSV."
+                )
             )
-            tools.append(pandas_tool)
 
+        # 3️⃣  DB  👉  SQL tools
         if db_file:
             db_path = "uploaded_db.db"
             with open(db_path, "wb") as f:
                 f.write(db_file.read())
 
-            engine = create_engine(f"sqlite:///{db_path}")
-            sql_db = SQLDatabase(engine)
+            sql_db      = SQLDatabase(create_engine(f"sqlite:///{db_path}"))
             sql_toolkit = SQLDatabaseToolkit(db=sql_db, llm=chat)
-            sql_tools = sql_toolkit.get_tools()
-            # Create LLM instance at the top, once
-            
-
-# Update description of each SQL tool
-            for tool in sql_tools:
-                if tool.name == "query_sql_db":
-                    tool.description = "Executes SQL queries on the uploaded SQLite database."
-                elif tool.name == "list_sql_db_tables":
-                    tool.description = "Lists all tables available in the uploaded SQLite database."
-                elif tool.name == "info_sql_db":
-                    tool.description = "Provides schema and table-level summaries from the uploaded database."
-
-            tools.extend(sql_tools)
+            tools.extend(sql_toolkit.get_tools())
 
         if not tools:
             st.error("No tools available. Please upload at least one valid file.")
-        else:
-            final_agent = initialize_agent(
-                tools=tools,
-                llm=chat,
-                agent_type=AgentType.OPENAI_FUNCTIONS,
-               
-                #agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-                verbose=False
-            )
+            st.stop()
 
-            with st.spinner("Running..."):
-                response = final_agent.run({
-                    "input": query,
-                    "chat_history": []
-                })
+        # 4️⃣  Initialise multi-tool agent
+        final_agent = initialize_agent(
+            tools=tools,
+            llm=chat,
+            agent_type=AgentType.OPENAI_FUNCTIONS,
+            verbose=False,
+        )
 
-            st.success("Done")
-            st.markdown(f"**Response:**\n\n{response}")
+        # 5️⃣  RUN with **plain string**
+        with st.spinner("Running…"):
+            response = final_agent.run(query)
+
+        st.success("Done")
+        st.markdown(f"**Response:**\n\n{response}")
 
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"Error: {e}")
