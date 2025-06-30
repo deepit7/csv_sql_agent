@@ -84,8 +84,8 @@ elif submit and query:
             final_agent = initialize_agent(
                 tools=tools,
                 llm=chat,
-                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-
+                agent_type=AgentType.OPENAI_FUNCTIONS,
+               
                 #agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
                 verbose=False
             )
