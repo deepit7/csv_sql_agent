@@ -1,0 +1,7 @@
+streamlit
+pandas
+SQLAlchemy
+langchain
+langchain-community
+langchain-experimental
+openai
