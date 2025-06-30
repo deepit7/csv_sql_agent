@@ -33,7 +33,7 @@ elif submit and query:
             chat = ChatOpenAI(
                 model="gpt-3.5-turbo",
                 temperature=0,
-                openai_api_key=st.secrets["OPENAI_API_KEY"])
+                openai_api_key=st.secrets["openai_api_key"])
 
             pandas_agent = create_pandas_dataframe_agent(
                 chat,
