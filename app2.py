@@ -34,6 +34,17 @@ else:
 query = st.text_area("Enter your query:")
 run = st.button("Run Agent")
 
+def is_response_unhelpful(response: str) -> bool:
+    vague_keywords = [
+        "i don't know", "insufficient", "not enough", "no relevant",
+        "can't answer", "unclear", "data missing", "unable to determine",
+        "just a summary", "not specified", "no data", "no result"
+    ]
+    return (
+        len(response.strip()) < 20
+        or any(word in response.lower() for word in vague_keywords)
+    )
+
 if run:
     if not data_file:
         st.error(f"Please upload a {mode} file to proceed.")
@@ -42,14 +53,12 @@ if run:
     else:
         try:
             if mode == "CSV":
-                # Save and load CSV
                 path = "uploaded.csv"
                 with open(path, "wb") as f:
                     f.write(data_file.read())
                 df = pd.read_csv(path)
                 st.success(f"✅ CSV loaded: {df.shape}")
 
-                # Create and run pandas agent
                 pandas_agent = create_pandas_dataframe_agent(
                     chat,
                     df,
@@ -60,7 +69,6 @@ if run:
                 result = pandas_agent.run(query)
 
             else:
-                # Save and load SQLite DB
                 dbpath = "uploaded.db"
                 with open(dbpath, "wb") as f:
                     f.write(data_file.read())
@@ -69,17 +77,29 @@ if run:
                 sql_toolkit = SQLDatabaseToolkit(db=sql_db, llm=chat)
                 tools = sql_toolkit.get_tools()
 
-                # Initialize and run SQL agent
                 sql_agent = initialize_agent(
                     tools,
                     chat,
                     agent_type=AgentType.OPENAI_FUNCTIONS,
-                    verbose=True,
+                    verbose=False,
                     handle_parsing_errors=True
                 )
                 result = sql_agent.run(query)
 
             st.success("✅ Done")
             st.markdown(f"**Response:**\n\n{result}")
+
+            if is_response_unhelpful(result):
+                explanation_prompt = f"""
+                The user asked: {query}
+                The final response was: {result}
+
+                Explain in simple terms why the response might be incomplete or vague.
+                Be concise and honest — mention if the query was vague, if tools failed, or if data is insufficient.
+                """
+                reason = chat.predict(explanation_prompt)
+                st.warning("⚠️ The response may not fully answer the query.")
+                st.markdown(f"**Why:** {reason}")
+
         except Exception as e:
             st.error(f"Error: {e}")
