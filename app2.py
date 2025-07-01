@@ -65,8 +65,11 @@ if run:
                     verbose=False,
                     allow_dangerous_code=True,
                     agent_type=AgentType.OPENAI_FUNCTIONS,
+                    return_intermediate_steps=True  # enable steps
                 )
-                result = pandas_agent.run(query)
+                response = pandas_agent.invoke({"input": query})
+                result = response["output"]
+                steps = response.get("intermediate_steps", [])
 
             else:
                 dbpath = "uploaded.db"
@@ -77,25 +80,58 @@ if run:
                 sql_toolkit = SQLDatabaseToolkit(db=sql_db, llm=chat)
                 tools = sql_toolkit.get_tools()
 
-                sql_agent = initialize_agent(
+                sql_agent_executor = initialize_agent(
                     tools,
                     chat,
                     agent_type=AgentType.OPENAI_FUNCTIONS,
                     verbose=False,
-                    handle_parsing_errors=True
+                    handle_parsing_errors=True,
+                    return_intermediate_steps=True
                 )
-                result = sql_agent.run(query)
+                response = sql_agent_executor.invoke({"input": query})
+                result = response["output"]
+                steps = response.get("intermediate_steps", [])
 
             st.success("✅ Done")
             st.markdown(f"**Response:**\n\n{result}")
 
+            # ✅ Show reasoning
+            if steps:
+                with st.expander("🧠 Show agent reasoning steps"):
+                    for i, (action, observation) in enumerate(steps, 1):
+                        st.markdown(f"### 🧩 Step {i}")
+
+                        if hasattr(action, "tool") and hasattr(action, "tool_input"):
+                            tool_name = action.tool
+                            tool_input = str(action.tool_input)
+
+                            readable_tool = {
+                                "python_repl_ast": "🧠 Python Code",
+                                "query_sql_db": "📊 SQL Query",
+                                "pandas_dataframe_tool": "📈 Pandas Operations"
+                            }.get(tool_name, tool_name)
+
+                            st.markdown(f"**Tool used:** {readable_tool}")
+                            # Use LLM to convert tool_input code into plain English explanation
+                            plain_prompt = f"""Explain this code in simple words for a general user:\n\n{tool_input}"""
+                            explanation = chat.predict(plain_prompt)
+
+                            st.markdown(f"**What it tried to do (explained):** {explanation}")
+
+                        else:
+                            st.markdown("Tool information not available.")
+
+                        #st.markdown(f"**Output/Result:** `{observation}`")
+                        #st.markdown("---")
+
+
+            # ✅ Explanation if vague
             if is_response_unhelpful(result):
                 explanation_prompt = f"""
                 The user asked: {query}
                 The final response was: {result}
 
-                Explain in simple terms why the response might be incomplete or vague.
-                Be concise and honest — mention if the query was vague, if tools failed, or if data is insufficient.
+                Explain in simple terms why the response may be incomplete or vague.
                 """
                 reason = chat.predict(explanation_prompt)
                 st.warning("⚠️ The response may not fully answer the query.")
