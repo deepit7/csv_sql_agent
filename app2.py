@@ -11,7 +11,7 @@ from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
 from langchain.agents.agent_types import AgentType
 
 st.set_page_config(page_title="CSV or SQL Agent", layout="centered")
-st.title("DeepQuery")
+st.title("DeepQuery Agent 🔍")
 
 # Initialize LLM once
 chat = ChatOpenAI(
